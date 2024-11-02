@@ -25,9 +25,9 @@ Generate a JSON file containing 10 unique multiple-choice questions related to m
 //jsonDecode is use to convert from json data into object in dart, but since our Json Data is nested data, we need multiple function to extract them one by one
 
 List<Quiz> convertJsonToObject(String jsonDatas) {
-  print("check1");
+  // print("check1");
   List<dynamic> jsonDataList = jsonDecode(jsonDatas);
-  print("check2");
+  // print("check2");
 
   return jsonDataList.map((jsonData) => Quiz.fromjson(jsonData)).toList();
 }
@@ -118,17 +118,30 @@ Future<String> requestGPT(String prompt) async {
   return "error No data";
 }
 
-
+class Correction {
+  final String question;
+  final String correctAnswer;
+  Correction({required this.question, required this.correctAnswer});
+}
 
 class QuizGame {
   int live = 4;
   final Difficulty level;
+  List<Correction> correction = [];
   QuizGame({required this.level});
 
-  void startGame() async {
+  void displayCorrectAnswer() {
+    print("\n############################");
+    print("Correction of your wrong answer");
+    print("############################\n\n");
+    for (var item in correction) {
+      print("Question : ${item.question}");
+      print("Answer : ${item.correctAnswer}\n");
+    }
+  }
+
+  Future<List<Quiz>> prepareQuiz() async {
     late String requestStatement;
-    int i = 1;
-    int j = 1;
     switch (this.level) {
       case Difficulty.basicFlutter:
         requestStatement = basicFlutter;
@@ -140,58 +153,75 @@ class QuizGame {
         requestStatement = masterFlutter;
         break;
     }
-    var text = await requestGPT(requestStatement);
-    var quizz = convertJsonToObject(text);
 
-    for (var question in quizz) {
-      print("Live remainning : ${live}");
-      print("${j}. ${question.question}");
+    var text = await requestGPT(requestStatement);
+    return convertJsonToObject(text);
+  }
+
+  void startGame() async {
+    int i = 1;
+    int j = 1;
+    var quiz = await prepareQuiz();
+
+    for (var question in quiz) {
+      print("\nLive remainning : $live\n");
+      print("$j. ${question.question}");
       j++;
       i = 1;
       for (var option in question.options) {
-        print(" ${i}. ${option}");
+        print(" $i. $option");
         i++;
       }
-
+      //take user input
       int input = int.parse(stdin.readLineSync()!);
+
       if (input > 4) {
+        correction.add(Correction(
+            question: question.question,
+            correctAnswer: question.correctAnswer));
         live--;
       } else if (question.options[input - 1] != question.correctAnswer) {
+        correction.add(Correction(
+            question: question.question,
+            correctAnswer: question.correctAnswer));
         live--;
-           print("Wrong!!!");
-      sleep(Duration(seconds: 1));
-      }else{
-         print("Correct!!!");
-      sleep(Duration(seconds: 1));
+        print("\nWrong!!!\n");
+        sleep(Duration(seconds: 1));
+      } else {
+        print("\nCorrect!!!\n");
+        sleep(Duration(seconds: 1));
       }
       if (live == 0) {
         print("You have lost the game");
+        displayCorrectAnswer();
         return;
       }
-     
     }
-  
+
     print("Winner!! you have succesfully crash ${level.name}");
+    displayCorrectAnswer();
   }
 }
 
-void menu(){
+void menu() {
+  print("----------------------------------------------------------");
   print("Flutter Quizs");
   print("Choose difficulty");
-  print("1. Basic\n2. Advance\n3. Master ");
+  print("----------------------------------------------------------");
+  print("  1. Basic\n  2. Advance\n  3. Master ");
   int input = int.parse(stdin.readLineSync()!);
-  if (input >3 || input<1){
+  if (input > 3 || input < 1) {
     print("Option not available");
-  }else{
-    print("Selected ${ Difficulty.values[input-1].name}");
-    QuizGame game = QuizGame(level: Difficulty.values[input-1]);
-    game.startGame() ;
-  }
+  } else {
+    print("----------------------------------------------------------");
+    print("Selected ${Difficulty.values[input - 1].name}\nLoading...");
+    print("----------------------------------------------------------\n\n");
 
+    QuizGame game = QuizGame(level: Difficulty.values[input - 1]);
+    game.startGame();
+  }
 }
 
-void main() async {
+void main() {
   menu();
-  
-
 }
